@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local test data (Generic edits)
+/data/generics.json
+
+# panel admin accounts (password hashes)
+/data/local-admins.json
+/data/users.json
+/data/roles.json
+/data/permissions.json
+/data/speciality.json
