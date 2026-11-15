@@ -49,3 +49,4 @@ next-env.d.ts
 /data/roles.json
 /data/permissions.json
 /data/speciality.json
+/data/licenses.json

@@ -20,7 +20,7 @@ export function proxy(req: NextRequest) {
   // Already logged in → don't show the login page again
   // (only for /login — /api/auth must stay reachable so logout works)
   if (token && pathname.startsWith("/login")) {
-    return NextResponse.redirect(new URL("/profile", req.url));
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   return NextResponse.next();

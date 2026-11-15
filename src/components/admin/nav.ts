@@ -59,8 +59,8 @@ export const NAV: NavGroup[] = [
       {
         label: "License", icon: BadgeCheck,
         children: [
-          { label: "All Licenses", href: "/license" },
-          { label: "Add License", href: "/license/new" },
+          { label: "Create License", href: "/license/create" },
+          { label: "List License", href: "/license/list" },
         ],
       },
     ],
@@ -91,8 +91,8 @@ export const PAGE_TITLES: Record<string, string> = {
   "/users/roles": "User Role",
   "/users/admins": "List of Admin User",
   "/users/doctors": "List of Doctor",
-  "/license": "License",
-  "/license/new": "Add License",
+  "/license/create": "Create License",
+  "/license/list": "List License",
 };
 
 // Titles for pages with an id in the URL

@@ -58,7 +58,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.replace("/profile");
+    router.replace("/dashboard");
   } catch {
     setServerError("Something went wrong. Please try again later.");
   }
