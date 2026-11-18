@@ -16,6 +16,17 @@ async function idOf(ctx: Ctx) {
   return ID.test(id) ? id : null;
 }
 
+const NO_ERP_EDIT = "This doctor is saved in the ERP, and the ERP has no API to edit, deactivate or delete doctors yet.";
+
+async function isErpUser(id: string) {
+  try {
+    return (await getLocalUser(id)).erpStatus === "synced";
+  } catch (e) {
+    if (e instanceof UserNotFound) return false;
+    throw e;
+  }
+}
+
 async function run(fn: () => Promise<Response>) {
   try {
     return await fn();
@@ -41,6 +52,7 @@ export async function PUT(req: Request, ctx: Ctx) {
     await requireSession();
     const id = await idOf(ctx);
     if (!id) return notFound();
+    if (await isErpUser(id)) return jsonError(501, NO_ERP_EDIT);
     const parsed = userUpdateSchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return jsonError(400, parsed.error.issues[0]?.message ?? "Invalid data");
     return run(async () => NextResponse.json(await updateLocalUser(id, parsed.data)));
@@ -53,6 +65,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     await requireSession();
     const id = await idOf(ctx);
     if (!id) return notFound();
+    if (await isErpUser(id)) return jsonError(501, NO_ERP_EDIT);
     const parsed = z.object({ isActive: z.boolean() }).safeParse(await req.json().catch(() => null));
     if (!parsed.success) return jsonError(400, "Invalid data");
     return run(async () => NextResponse.json(await setLocalUserActive(id, parsed.data.isActive)));
@@ -64,6 +77,7 @@ export async function DELETE(_: Request, ctx: Ctx) {
     await requireSession();
     const id = await idOf(ctx);
     if (!id) return notFound();
+    if (await isErpUser(id)) return jsonError(501, NO_ERP_EDIT);
     return run(async () => {
       await deleteLocalUser(id);
       return NextResponse.json({ ok: true });

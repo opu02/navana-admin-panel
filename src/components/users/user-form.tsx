@@ -13,7 +13,7 @@ import { PasswordInput } from "@/components/password-input";
 import { Combobox } from "@/components/combobox";
 import { cn } from "@/lib/utils";
 import { apiFetch, ApiError } from "@/lib/client-api";
-import { USER_TYPES, userSchema, userUpdateSchema, type UserForm } from "@/lib/user-schema";
+import { USER_TYPES, padNpl, userSchema, userUpdateSchema, type UserForm } from "@/lib/user-schema";
 
 const EMPTY: UserForm = {
   name: "", email: "", username: "", password: "", type: "Doctor", specialty: "", designation: "",
@@ -24,26 +24,27 @@ type FieldDef = { key: keyof UserForm; label: string; placeholder: string; requi
 
 const FIELDS: FieldDef[][] = [
   [{ key: "name", label: "Name", placeholder: "Write name", required: true, max: 100 },
-   { key: "email", label: "Email", placeholder: "Write email", required: true, max: 100, type: "email" }],
+   { key: "email", label: "Email", placeholder: "Write email (optional)", max: 100, type: "email" }],
   [{ key: "username", label: "Username / Phone", placeholder: "Write username or phone", required: true, max: 50 }],
   [{ key: "designation", label: "Designation", placeholder: "Write designation", max: 150 },
    { key: "organization", label: "Organization", placeholder: "Write organization", max: 200 }],
   [{ key: "chamber", label: "Chamber", placeholder: "Write personal chamber", max: 200 },
    { key: "address", label: "Address", placeholder: "Write address", max: 300 }],
-  [{ key: "npl", label: "NPL Number", placeholder: "Write NPL", max: 30 },
+  [{ key: "npl", label: "NPL Number", placeholder: "e.g. BH2771 or 8371 (max 10)", max: 10 },
    { key: "bmdc", label: "BMDC", placeholder: "Write BMDC", max: 30 }],
 ];
 
 /** Create (no editId) or edit a user. backTo = where to go after saving an edit. */
-export function UserFormCard({ editId, backTo = "/users/admins" }: { editId?: string; backTo?: string }) {
+export function UserFormCard({ editId, backTo = "/users/admins", fixedType }: { editId?: string; backTo?: string; fixedType?: "Admin" }) {
+  const empty: UserForm = { ...EMPTY, type: fixedType ?? EMPTY.type };
   const router = useRouter();
   const isEdit = editId !== undefined;
-  const [original, setOriginal] = useState<UserForm>(EMPTY);
+  const [original, setOriginal] = useState<UserForm>(empty);
   const [loadingItem, setLoadingItem] = useState(isEdit);
   const {
     register, handleSubmit, reset, watch, setError, setValue,
     formState: { errors, isSubmitting, isDirty },
-  } = useForm<UserForm>({ resolver: zodResolver(isEdit ? userUpdateSchema : userSchema), defaultValues: EMPTY, mode: "onTouched" });
+  } = useForm<UserForm>({ resolver: zodResolver(isEdit ? userUpdateSchema : userSchema), defaultValues: empty, mode: "onTouched" });
   const isDoctor = watch("type") === "Doctor";
   const specialty = watch("specialty") ?? "";
   const [specialties, setSpecialties] = useState<string[]>([]);
@@ -56,8 +57,13 @@ export function UserFormCard({ editId, backTo = "/users/admins" }: { editId?: st
 
   useEffect(() => {
     if (!isEdit) return;
-    apiFetch<UserForm & { id: string }>(`/api/users/${editId}`)
+    apiFetch<UserForm & { id: string; erpStatus?: string }>(`/api/users/${editId}`)
       .then((u) => {
+        if (u.erpStatus === "synced") {
+          toast.error("This doctor is saved in the ERP, which has no API to edit doctors yet.");
+          router.replace(backTo);
+          return;
+        }
         const f: UserForm = {
           name: u.name, email: u.email, username: u.username, password: "", type: u.type,
           specialty: u.specialty ?? "", designation: u.designation ?? "", organization: u.organization ?? "",
@@ -83,12 +89,12 @@ export function UserFormCard({ editId, backTo = "/users/admins" }: { editId?: st
         toast.success("User updated");
         router.push(backTo);
       } else {
-        toast.success("User saved on the website (not in the ERP yet)");
-        reset(EMPTY);
+        toast.success("Admin saved on the website (not in the ERP)");
+        reset(empty);
       }
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Could not save the user.";
-      if (e instanceof ApiError && e.status === 409) setError(msg.includes("email") ? "email" : "username", { message: msg });
+      if (e instanceof ApiError && e.status === 409) setError(msg.includes("NPL") ? "npl" : msg.includes("email") ? "email" : "username", { message: msg });
       else toast.error(msg);
     }
   }
@@ -103,9 +109,13 @@ export function UserFormCard({ editId, backTo = "/users/admins" }: { editId?: st
         id={f.key} type={f.type ?? "text"} placeholder={f.placeholder} maxLength={f.max} autoComplete="off"
         aria-invalid={!!errors[f.key]}
         className={cn("h-11", errors[f.key] && "border-destructive")}
-        {...register(f.key)}
+        {...(f.key === "npl" ? { inputMode: "numeric" as const } : {})}
+        {...register(f.key, f.key === "npl"
+          ? { onBlur: (e) => setValue("npl", padNpl(e.target.value.trim()) || e.target.value.trim(), { shouldValidate: true, shouldDirty: true }) }
+          : undefined)}
       />
-      {errors[f.key] && <p className="text-xs text-destructive">{errors[f.key]?.message}</p>}
+      {errors[f.key] ? <p className="text-xs text-destructive">{errors[f.key]?.message}</p>
+             : f.key === "npl" && <p className="text-xs text-muted-foreground">Always 10 characters. With 2 letters, 0s go after the letters (BH2771 → BH00002771). Digits only: 0s go in front (8371 → 0000008371).</p>}
     </div>
   );
 
@@ -114,8 +124,8 @@ export function UserFormCard({ editId, backTo = "/users/admins" }: { editId?: st
       <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
         <p>
-          <b>Users are saved on this website only for now.</b> The ERP has no API to create users yet, so these
-          users are <b>not</b> on the server and <b>cannot log in to the app</b> until the ERP team provides the API.
+          <b>Admin users (and old doctor records) are saved on this website only.</b> The ERP has no API for them, so they
+          are <b>not</b> on the server. Doctors created from the Doctor tab go to the ERP.
         </p>
       </div>
 
@@ -143,7 +153,7 @@ export function UserFormCard({ editId, backTo = "/users/admins" }: { editId?: st
             <div className="space-y-2">
               <Label htmlFor="password">{isEdit ? "New Password" : "Password"}{!isEdit && <span className="ml-0.5 text-destructive">*</span>}</Label>
               <PasswordInput
-                id="password" placeholder={isEdit ? "Leave empty to keep the old password" : "At least 8 characters, letters + numbers"} autoComplete="new-password"
+                id="password" placeholder={isEdit ? "Leave empty to keep the old password" : "Write password"} autoComplete="new-password"
                 maxLength={100} aria-invalid={!!errors.password}
                 className={cn("h-11", errors.password && "border-destructive")}
                 {...register("password")}
@@ -153,9 +163,13 @@ export function UserFormCard({ editId, backTo = "/users/admins" }: { editId?: st
 
             <div className="space-y-2">
               <Label htmlFor="type">Type<span className="ml-0.5 text-destructive">*</span></Label>
-              <select id="type" {...register("type")} className="h-11 w-full cursor-pointer rounded-md border bg-background px-3 text-sm">
-                {USER_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
+              {fixedType ? (
+                <Input id="type" value={fixedType} readOnly className="h-11 bg-muted/40" />
+              ) : (
+                <select id="type" {...register("type")} className="h-11 w-full cursor-pointer rounded-md border bg-background px-3 text-sm">
+                  {USER_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              )}
             </div>
 
             <div className="space-y-2">

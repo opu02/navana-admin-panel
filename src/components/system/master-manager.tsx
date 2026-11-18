@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { banglaKeyDown, convertWordBeforeCursor, toBangla } from "@/lib/bangla-typing";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Pagination } from "@/components/report-ui";
 import { cn } from "@/lib/utils";
@@ -47,11 +48,55 @@ export function MasterManager({ listKey, editId }: { listKey: MasterKey; editId?
   const [deleting, setDeleting] = useState(false);
 
   const {
-    register, handleSubmit, reset, setError: setFieldError, watch,
+    register, handleSubmit, reset, setError: setFieldError, watch, setValue, getValues,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<MasterForm>({ resolver: zodResolver(masterSchema), defaultValues: EMPTY, mode: "onTouched" });
   const { ref: rhfRef, ...nameField } = register("name");
   const nameLength = watch("name")?.length ?? 0;
+  const { onBlur: extraOnBlur, ...extraField } = register("extra");
+
+  // ---- বাংলা / English typing ----
+  const bangla = !!cfg.banglaTyping;
+  const [lang, setLang] = useState<"bn" | "en">("bn");
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("rx-typing-lang");
+      if (saved === "en" || saved === "bn") setLang(saved);
+    } catch {}
+  }, []);
+  const chooseLang = useCallback((l: "bn" | "en") => {
+    setLang(l);
+    try { localStorage.setItem("rx-typing-lang", l); } catch {}
+  }, []);
+  const typingBn = bangla && lang === "bn";
+  const put = (field: "name" | "extra") => (v: string) => setValue(field, v, { shouldDirty: true, shouldValidate: !!errors[field] });
+  /** Props that make a box type Bangla. Ctrl+M switches বাংলা / English. */
+  const bnProps = (field: "name" | "extra") => ({
+    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      if (!bangla) return;
+      if (e.ctrlKey && (e.key === "m" || e.key === "M")) {
+        e.preventDefault();
+        chooseLang(lang === "bn" ? "en" : "bn");
+        return;
+      }
+      if (typingBn) banglaKeyDown(e, put(field));
+    },
+    lang: typingBn ? "bn" : undefined,
+  });
+  /** On leaving the box, also convert the last word (no space typed after it) */
+  const tailOnBlur = (field: "name" | "extra", el: HTMLInputElement | HTMLTextAreaElement) => {
+    if (typingBn) {
+      el.setSelectionRange(el.value.length, el.value.length);
+      if (convertWordBeforeCursor(el)) put(field)(el.value);
+    }
+  };
+  function convertAll() {
+    const name = toBangla(getValues("name") ?? "");
+    const extra = toBangla(getValues("extra") ?? "");
+    setValue("name", name, { shouldDirty: true, shouldValidate: !!errors.name });
+    if (cfg.extra) setValue("extra", extra, { shouldDirty: true });
+    toast.success("Converted to Bangla");
+  }
 
   useEffect(() => {
     if (!isEdit) return;
@@ -163,6 +208,30 @@ export function MasterManager({ listKey, editId }: { listKey: MasterKey; editId?
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <div className="space-y-5 p-5">
+            {bangla && (
+              <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium">Typing</span>
+                  <div role="radiogroup" aria-label="Typing language" className="inline-flex rounded-md border bg-background p-0.5">
+                    {(["bn", "en"] as const).map((l) => (
+                      <button key={l} type="button" role="radio" aria-checked={lang === l} onClick={() => chooseLang(l)}
+                        className={cn("cursor-pointer rounded px-3 py-1 text-sm font-medium transition-colors",
+                          lang === l ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
+                        {l === "bn" ? "বাংলা" : "English"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {typingBn
+                    ? <>Type Banglish, it turns into Bangla after each word. e.g. <span className="font-mono">khawar pore</span> → খাওয়ার পরে. Ctrl+M = English.</>
+                    : <>Text stays in English as you type. Ctrl+M = বাংলা.</>}
+                </p>
+                <button type="button" onClick={convertAll} className="cursor-pointer text-xs font-medium text-primary hover:underline">
+                  Convert pasted Banglish to বাংলা
+                </button>
+              </div>
+            )}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="name">{nameLabel}<span className="ml-0.5 text-destructive">*</span></Label>
@@ -174,6 +243,8 @@ export function MasterManager({ listKey, editId }: { listKey: MasterKey; editId?
                   aria-invalid={!!errors.name}
                   className={cn("resize-y", errors.name && "border-destructive")}
                   {...nameField}
+                  {...bnProps("name")}
+                  onBlur={(e) => { tailOnBlur("name", e.currentTarget); nameField.onBlur(e); }}
                   ref={(el) => { rhfRef(el); nameRef.current = el; }}
                 />
               ) : (
@@ -182,10 +253,12 @@ export function MasterManager({ listKey, editId }: { listKey: MasterKey; editId?
                   aria-invalid={!!errors.name}
                   className={cn("h-11", errors.name && "border-destructive")}
                   {...nameField}
+                  {...bnProps("name")}
+                  onBlur={(e) => { tailOnBlur("name", e.currentTarget); nameField.onBlur(e); }}
                   ref={(el) => { rhfRef(el); nameRef.current = el; }}
                 />
               )}
-              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+              {errors.name && <p className="text-xs text-destructive">{errors.name.message?.replace(/^Name\b/, nameLabel)}</p>}
             </div>
 
             {cfg.extra && (
@@ -196,14 +269,18 @@ export function MasterManager({ listKey, editId }: { listKey: MasterKey; editId?
                     id="extra" placeholder={cfg.extra.placeholder} maxLength={cfg.extra.max} rows={8}
                     aria-invalid={!!errors.extra}
                     className={cn("resize-y", errors.extra && "border-destructive")}
-                    {...register("extra")}
+                    {...extraField}
+                    {...bnProps("extra")}
+                    onBlur={(e) => { tailOnBlur("extra", e.currentTarget); extraOnBlur(e); }}
                   />
                 ) : (
                   <Input
                     id="extra" placeholder={cfg.extra.placeholder} autoComplete="off" maxLength={cfg.extra.max}
                     aria-invalid={!!errors.extra}
                     className={cn("h-11", errors.extra && "border-destructive")}
-                    {...register("extra")}
+                    {...extraField}
+                    {...bnProps("extra")}
+                    onBlur={(e) => { tailOnBlur("extra", e.currentTarget); extraOnBlur(e); }}
                   />
                 )}
                 {errors.extra && <p className="text-xs text-destructive">{errors.extra.message}</p>}

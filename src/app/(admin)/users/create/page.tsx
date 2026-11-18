@@ -1,5 +1,5 @@
-import { UserFormCard } from "@/components/users/user-form";
+import { CreateUser } from "@/components/users/create-user";
 
 export default function CreateUserPage() {
-  return <UserFormCard />;
+  return <CreateUser />;
 }

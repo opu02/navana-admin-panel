@@ -14,6 +14,8 @@ export type MasterConfig = {
   /** Label of the main field (default "Name") and whether it is a multi-line box */
   nameLabel?: string;
   nameMultiline?: boolean;
+  /** Show the বাংলা / English switch (Banglish → Bangla while typing) */
+  banglaTyping?: boolean;
   /** Optional second field (erpField = ERP column). multiline = big text box */
   extra?: { label: string; erpField: string; placeholder: string; max: number; multiline?: boolean };
 };
@@ -73,6 +75,7 @@ export const MASTER: Record<MasterKey, MasterConfig> = {
     basePath: "/system/advice",
     nameLabel: "Title",
     nameMultiline: true,
+    banglaTyping: true,
     extra: { label: "Text", erpField: "data_details", placeholder: "Write advice text", max: 5000, multiline: true },
   },
   handout: {
@@ -83,11 +86,12 @@ export const MASTER: Record<MasterKey, MasterConfig> = {
     basePath: "/system/handout",
     nameLabel: "Title",
     nameMultiline: true,
+    banglaTyping: true,
     extra: { label: "Text", erpField: "data_details", placeholder: "Write handout text", max: 5000, multiline: true },
   },
   // Same shape as rx-form (data_id, name_desc, ...) — checked in the app's models
-  dose: { path: "rx-data/rx-dose", title: "Dose", singular: "Dose", basePath: "/system/dose" },
-  instruction: { path: "rx-data/rx-instruction", title: "Instruction", singular: "Instruction", basePath: "/system/instruction" },
+  dose: { path: "rx-data/rx-dose", title: "Dose", singular: "Dose", basePath: "/system/dose", banglaTyping: true },
+  instruction: { path: "rx-data/rx-instruction", title: "Instruction", singular: "Instruction", basePath: "/system/instruction", banglaTyping: true },
   // History = Clinical History section (140). Drug History (141) / Other History (155) can be added the same way.
   // No ERP API for Speciality yet → saved on this PC (data/speciality.json). Same 48 items as the old panel.
   speciality: {

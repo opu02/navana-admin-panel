@@ -50,3 +50,4 @@ next-env.d.ts
 /data/permissions.json
 /data/speciality.json
 /data/licenses.json
+/data/chambers.json

@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { ErpError } from "./erp";
 import { SESSION_COOKIE, UnauthorizedError, deleteSession, getSession } from "./session";
+import { SecretKeyMissing } from "./secret-box";
 
 export function jsonError(status: number, message: string) {
   const res = NextResponse.json({ message }, { status });
@@ -16,7 +17,12 @@ export async function handle(fn: () => Promise<Response>): Promise<Response> {
     return await fn();
   } catch (e) {
     if (e instanceof UnauthorizedError) return jsonError(401, "Please sign in again.");
+    if (e instanceof SecretKeyMissing) {
+      console.error("[config]", e.message);
+      return jsonError(500, "Password encryption key is not set up. Ask the developer to set PASSWORD_ENC_KEY in .env.local.");
+    }
     if (e instanceof ErpError) {
+      if (e.status === 503) return jsonError(503, e.message);
       if (e.status === 401 || e.status === 403) {
         const s = await getSession();
         if (s) deleteSession(s.id);
