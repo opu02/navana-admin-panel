@@ -9,10 +9,10 @@ import { CheckCircle2, Loader2, Plus, RotateCcw, Save, Trash2, UserPlus } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PasswordInput } from "@/components/password-input";
 import { Combobox } from "@/components/combobox";
 import { cn } from "@/lib/utils";
 import { apiFetch, ApiError } from "@/lib/client-api";
+import { PasswordInput } from "@/components/password-input";
 import { doctorCreateSchema, padNpl, type DoctorCreateForm } from "@/lib/user-schema";
 
 const EMPTY: DoctorCreateForm = {
@@ -89,9 +89,8 @@ export function DoctorCreateCard() {
       <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
         <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
         <p>
-          <b>Doctors are saved in the ERP.</b> The ERP takes only the name, phone, NPL number and chambers. Email, password,
-          specialty, designation, organization, address and BMDC are saved on this website next to the ERP doctor (the password
-          is <b>not</b> sent to the ERP). A doctor can&apos;t be edited or deleted from here (the ERP has no API for that yet),
+          <b>Doctors are saved in the ERP.</b> The ERP takes only the name, phone, NPL number and chambers. Email,
+          specialty, designation, organization, address and BMDC are saved on this website next to the ERP doctor. A doctor can&apos;t be edited or deleted from here (the ERP has no API for that yet),
           but more chambers can be added from the Doctor List.
         </p>
       </div>
@@ -123,7 +122,9 @@ export function DoctorCreateCard() {
               <Label htmlFor="password">Password<span className="ml-0.5 text-destructive">*</span></Label>
               <PasswordInput id="password" placeholder="Write password" autoComplete="new-password" maxLength={100}
                 aria-invalid={!!errors.password} className={cn("h-11", errors.password && "border-destructive")} {...register("password")} />
-              {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+              {errors.password
+                ? <p className="text-xs text-destructive">{errors.password.message}</p>
+                : <p className="text-xs text-muted-foreground">For now the app login password is the phone number, until the ERP saves this password.</p>}
             </div>
 
             <div className="space-y-2">

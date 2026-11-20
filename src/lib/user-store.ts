@@ -70,8 +70,9 @@ export async function assertDoctorFree(npl: string, phone: string, email = "") {
 
 /**
  * A doctor was just created in the ERP: keep the fields the ERP has no column for
- * (email, password, specialty, designation, organization, address, BMDC) on this website,
- * linked to the ERP user. The password is stored as bcrypt hash + AES-GCM (never plain text).
+ * (email, specialty, designation, organization, address, BMDC) on this website,
+ * linked to the ERP user. The typed password is kept as bcrypt hash + AES-GCM (never plain text),
+ * so it can be sent to the ERP again later (getPasswordForErp).
  */
 export function saveErpDoctorExtras(f: DoctorCreateForm, erpUserId: number | null, createdBy: number): Promise<void> {
   assertSecretKey();

@@ -1,5 +1,7 @@
 // Creates a doctor (and chambers) in the ERP.
-//   POST rx-data/user-create        { doc_code, full_name, phone_no, chamber_name, chamber_address }
+//   POST rx-data/user-create        { doc_code, full_name, phone_no, chamber_name, chamber_address, created_by }
+//   "password" is sent too. For now the ERP ignores it and uses the phone number as the app password;
+//   when the ERP starts reading "password", the typed password works with no change here.
 //   POST rx-data/rx-doctor-chamber  { doc_user_id, doc_code, chamber_name, chamber_address, created_by }
 // A doctor can have many chambers: the FIRST one goes with user-create, the others use rx-doctor-chamber.
 import "server-only";
@@ -63,6 +65,8 @@ export async function erpCreateDoctor(s: Session, f: DoctorCreateForm): Promise<
       phone_no: f.phone.trim(),
       chamber_name: first.name.trim(),
       chamber_address: first.address.trim(),
+      password: f.password,
+      created_by: String(s.userId),
     },
   });
   assertErpOk(res, "doctor");
@@ -121,13 +125,13 @@ export async function createDoctor(
     invalidateDoctors(s.userId);
   }
 
-  // The ERP has no column for email / password / specialty / designation / organization / address / BMDC:
+  // The ERP has no column for email / specialty / designation / organization / address / BMDC:
   // keep them on this website, linked to the ERP doctor. A failure here must not hide that the doctor WAS created.
   try {
     await saveErpDoctorExtras(f, erpUserId, s.userId);
   } catch (e) {
     console.error("[doctor] extra details could not be saved on the website:", e);
-    warnings.push(`The doctor is in the ERP, but email / password / specialty etc. could not be saved on this website: ${e instanceof Error ? e.message : "unknown error"}`);
+    warnings.push(`The doctor is in the ERP, but email / specialty etc. could not be saved on this website: ${e instanceof Error ? e.message : "unknown error"}`);
   }
   return { name: f.name.trim(), erpUserId, warnings };
 }

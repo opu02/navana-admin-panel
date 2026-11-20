@@ -53,7 +53,9 @@ export type UserForm = z.infer<typeof userSchema>;
 
 // ---------------- Doctor created through the ERP (rx-data/user-create) ----------------
 // The ERP only takes: doc_code (NPL), full_name, phone_no and the chambers.
-// The other fields (email, password, specialty, designation, organization, address, BMDC) are kept
+// Password: typed by the admin. It is sent to the ERP as "password" and kept encrypted here.
+// For now the ERP ignores it and sets the app password = the phone number, until the ERP reads this field.
+// The other fields (email, specialty, designation, organization, address, BMDC) are kept
 // on this website next to the ERP doctor (data/users.json, erpStatus "synced").
 // A doctor can have as many chambers as he wants: there is no maximum.
 
